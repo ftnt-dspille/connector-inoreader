@@ -1,0 +1,69 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+# Cancel superseded runs for the same PR/branch.
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: astral-sh/ruff-action@0ce1b0bf8b818ef400413f810f8a11cdbda0034b # v4.0.0
+        with:
+          args: check
+      - uses: astral-sh/ruff-action@0ce1b0bf8b818ef400413f810f8a11cdbda0034b # v4.0.0
+        with:
+          args: format --check
+
+  manifest:
+    # info.json is the contract FortiSOAR imports; a syntax error here is only
+    # discovered at import time on the appliance, long after the tests pass.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Validate info.json
+        run: |
+          python3 - <<'PY'
+          import json
+          info = json.load(open('inoreader/info.json'))
+          ops = {o['operation'] for o in info['operations']}
+          import re
+          src = open('inoreader/operations.py').read()
+          registered = set(re.findall(r"^\s+'([a-z_]+)': \w+,$", src, re.M))
+          missing = ops - registered
+          assert not missing, f'operations declared in info.json but not registered: {missing}'
+          print(f'info.json OK: {len(ops)} operations, all registered')
+          PY
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Floor is 3.10 (FSR 8.0 runs 3.12; 7.6.x/3.9 is not supported).
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test deps
+        run: pip install pytest requests
+
+      - name: Run tests
+        run: pytest -q

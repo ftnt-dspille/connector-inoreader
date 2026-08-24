@@ -1,0 +1,30 @@
+# Config-only project file: the connector itself is a FortiSOAR package (imported
+# on-box from the inoreader/ directory) and is not pip-installable. This file
+# carries the ruff + pytest configuration the CI workflows use.
+
+[project]
+name = "connector-inoreader"
+version = "1.0.0"
+description = "FortiSOAR Inoreader connector -- read RSS/Atom feeds, folders, and article streams over the Inoreader Reader API."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.6"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Put the repo root on sys.path so `from inoreader import operations` resolves.
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+# The connector ships as a FortiSOAR package and follows that codebase's
+# conventions (single quotes, `.format()` over f-strings, `object` base classes),
+# so lint the test suite and leave the connector package alone.
+include = ["tests/**/*.py"]
+
+[tool.ruff.lint]
+# pyflakes, pycodestyle, isort, pyupgrade, bugbear
+select = ["F", "E", "W", "I", "UP", "B"]

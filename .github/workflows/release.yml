@@ -1,0 +1,43 @@
+name: Release
+
+# Builds the importable connector tarball (inoreader.tgz) -- the same layout
+# FortiSOAR's "Import Connector" expects (a gzip tar of the inoreader/ package).
+# - push a tag like v1.0.0  -> builds + attaches inoreader.tgz to a GitHub Release
+# - manual run (any branch) -> builds + uploads inoreader.tgz as a workflow artifact
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Build connector tarball
+        run: |
+          tar --exclude='__pycache__' --exclude='*.pyc' -czf inoreader.tgz inoreader
+          echo "Contents:"
+          tar -tzf inoreader.tgz
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: inoreader-connector-tgz
+          path: inoreader.tgz
+
+      - name: Attach to GitHub Release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" inoreader.tgz \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --notes "FortiSOAR Inoreader connector $TAG. Import \`inoreader.tgz\` via Content Hub → Manage Connectors → Import."

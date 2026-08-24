@@ -1,0 +1,807 @@
+{
+  "name": "inoreader",
+  "label": "Inoreader",
+  "description": "Inoreader is a cloud RSS/Atom aggregator. This connector reads subscriptions, folders, and article streams over the Inoreader Reader API, marks articles read or starred, and ingests new articles on a schedule so playbooks can act on feed-driven intelligence (vendor release notes, advisories, vulnerability disclosures) without parsing RSS dialects.",
+  "publisher": "Community",
+  "cs_approved": false,
+  "cs_compatible": true,
+  "version": "1.0.0",
+  "category": "Threat Intelligence",
+  "icon_small_name": "small_icon.png",
+  "icon_large_name": "large_icon.png",
+  "vendor_version": "Reader API 0",
+  "help_online": "https://www.inoreader.com/developers/",
+  "ingestion_supported": true,
+  "ingestion_modes": [
+    "scheduled"
+  ],
+  "tags": [
+    "RSS",
+    "Feeds",
+    "PatchIntel"
+  ],
+  "configuration": {
+    "fields": [
+      {
+        "title": "Server URL",
+        "name": "server_url",
+        "type": "text",
+        "required": true,
+        "editable": true,
+        "visible": true,
+        "value": "https://www.inoreader.com",
+        "placeholder": "https://www.inoreader.com",
+        "description": "Base URL of the Inoreader service. Leave at the default unless you are pointed at a regional endpoint.",
+        "tooltip": "Base URL of the Inoreader service."
+      },
+      {
+        "title": "App ID",
+        "name": "app_id",
+        "type": "text",
+        "required": true,
+        "editable": true,
+        "visible": true,
+        "description": "The App ID issued when you registered your application at https://www.inoreader.com/developers/register-app. Sent in the AppId header; Inoreader's daily rate-limit quota is counted against it.",
+        "tooltip": "App ID from your registered Inoreader application."
+      },
+      {
+        "title": "App Key",
+        "name": "app_key",
+        "type": "password",
+        "required": true,
+        "editable": true,
+        "visible": true,
+        "description": "The App Key issued with the App ID. Sent in the AppKey header.",
+        "tooltip": "App Key from your registered Inoreader application."
+      },
+      {
+        "title": "OAuth Client ID",
+        "name": "client_id",
+        "type": "text",
+        "required": true,
+        "editable": true,
+        "visible": true,
+        "description": "OAuth 2.0 client ID of your Inoreader application. For most registrations this is the same value as the App ID.",
+        "tooltip": "OAuth 2.0 client ID."
+      },
+      {
+        "title": "OAuth Client Secret",
+        "name": "client_secret",
+        "type": "password",
+        "required": true,
+        "editable": true,
+        "visible": true,
+        "description": "OAuth 2.0 client secret of your Inoreader application. For most registrations this is the same value as the App Key.",
+        "tooltip": "OAuth 2.0 client secret."
+      },
+      {
+        "title": "Refresh Token",
+        "name": "refresh_token",
+        "type": "password",
+        "required": true,
+        "editable": true,
+        "visible": true,
+        "description": "OAuth 2.0 refresh token obtained once, out of band, by completing the authorization-code flow against https://www.inoreader.com/oauth2/auth with scope 'read' (or 'read write' if you intend to mark articles read, star them, or subscribe to feeds). The connector exchanges it for a short-lived access token and caches that token on this configuration. If Inoreader rotates the refresh token, the connector writes the new one back here automatically.",
+        "tooltip": "OAuth 2.0 refresh token for the Inoreader account whose feeds you want to read."
+      },
+      {
+        "title": "Verify SSL",
+        "name": "verify_ssl",
+        "type": "checkbox",
+        "required": false,
+        "editable": true,
+        "visible": true,
+        "value": true,
+        "description": "Whether the SSL certificate of the server is to be validated. Defaults to true.",
+        "tooltip": "Validate the server's SSL certificate."
+      }
+    ]
+  },
+  "ingestion_config_schema": [
+    {
+      "title": "Stream ID",
+      "name": "stream_id",
+      "type": "text",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "value": "user/-/state/com.google/reading-list",
+      "tooltip": "Stream to ingest: 'user/-/state/com.google/reading-list' for everything, 'user/-/label/FOLDER' for one folder, or 'feed/<feed url>' for a single feed.",
+      "description": "Stream to ingest. Use 'user/-/state/com.google/reading-list' for all subscriptions, 'user/-/label/<Folder>' for a folder, or 'feed/<feed url>' for a single feed. A bare feed URL is accepted and prefixed for you."
+    },
+    {
+      "title": "Ingestion Begin From",
+      "name": "last_pull_datetime",
+      "type": "datetime",
+      "required": true,
+      "editable": true,
+      "visible": true,
+      "tooltip": "Ingest articles published after this datetime. Subsequent runs continue from the last pull time.",
+      "description": "Ingest articles published after this datetime."
+    },
+    {
+      "title": "Unread Articles Only",
+      "name": "unread_only",
+      "type": "checkbox",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "value": true,
+      "tooltip": "Exclude articles already marked read in Inoreader.",
+      "description": "Exclude articles already marked as read in Inoreader."
+    },
+    {
+      "title": "Mark Ingested Articles as Read",
+      "name": "mark_as_read",
+      "type": "checkbox",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "value": false,
+      "tooltip": "Mark each ingested article read, so 'Unread Articles Only' becomes the de-duplication ledger. Requires the 'write' OAuth scope, and spends Zone 2 quota.",
+      "description": "Mark each ingested article as read after it is pulled. Requires the 'write' OAuth scope."
+    },
+    {
+      "title": "Maximum Articles per Pull",
+      "name": "max_records",
+      "type": "integer",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "value": 100,
+      "tooltip": "Hard stop on articles per run. Inoreader returns at most 100 per request, so 500 here costs 5 requests against a DAILY quota.",
+      "description": "Maximum number of articles to pull per run. Each 100 articles costs one API request against Inoreader's daily quota."
+    }
+  ],
+  "operations": [
+    {
+      "operation": "fetch_articles",
+      "title": "Fetch Articles",
+      "description": "Retrieves articles from an Inoreader stream published after a given time, optionally restricted to unread articles. This is the operation used by scheduled Data Ingestion.",
+      "category": "investigation",
+      "annotation": "fetch_articles",
+      "enabled": true,
+      "output_schema": {
+        "stream_id": "",
+        "count": "",
+        "articles": [
+          {
+            "source_id": "",
+            "title": "",
+            "author": "",
+            "published": "",
+            "published_iso": "",
+            "updated": "",
+            "url": "",
+            "content": "",
+            "feed_id": "",
+            "feed_title": "",
+            "feed_url": "",
+            "categories": [],
+            "is_read": "",
+            "labels": [],
+            "raw": {}
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "title": "Stream ID",
+          "name": "stream_id",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Stream to read. Defaults to the full reading list. A bare feed URL is accepted and prefixed with 'feed/' for you.",
+          "description": "Stream to read, e.g. 'user/-/state/com.google/reading-list', 'user/-/label/Patch Intel', or 'feed/https://example.com/releases.atom'. Defaults to the full reading list."
+        },
+        {
+          "title": "Published After",
+          "name": "last_pull_datetime",
+          "type": "datetime",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Only return articles published after this datetime.",
+          "description": "Only return articles published after this datetime."
+        },
+        {
+          "title": "Unread Articles Only",
+          "name": "unread_only",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": true,
+          "tooltip": "Exclude articles already marked read.",
+          "description": "Exclude articles already marked as read in Inoreader."
+        },
+        {
+          "title": "Mark Ingested Articles as Read",
+          "name": "mark_as_read",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": false,
+          "tooltip": "Mark each returned article read. Requires the 'write' OAuth scope.",
+          "description": "Mark each returned article as read after it is pulled. Requires the 'write' OAuth scope."
+        },
+        {
+          "title": "Maximum Articles",
+          "name": "max_records",
+          "type": "integer",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": 100,
+          "tooltip": "Hard stop on the number of articles returned.",
+          "description": "Maximum number of articles to return. Each 100 costs one API request."
+        }
+      ]
+    },
+    {
+      "operation": "get_stream_contents",
+      "title": "Get Stream Contents",
+      "description": "Retrieves full article content from a stream (a feed, a folder, or a system state such as starred), with server-side filtering and pagination.",
+      "category": "investigation",
+      "annotation": "get_stream_contents",
+      "enabled": true,
+      "output_schema": {
+        "stream_id": "",
+        "count": "",
+        "items": [
+          {
+            "id": "",
+            "title": "",
+            "author": "",
+            "published": "",
+            "updated": "",
+            "categories": [],
+            "canonical": [
+              {
+                "href": ""
+              }
+            ],
+            "summary": {
+              "content": ""
+            },
+            "origin": {
+              "streamId": "",
+              "title": "",
+              "htmlUrl": ""
+            }
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "title": "Stream ID",
+          "name": "stream_id",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Stream to read. Leave blank to use the Stream Type below.",
+          "description": "Stream to read, e.g. 'feed/https://example.com/releases.atom' or 'user/-/label/Patch Intel'. Leave blank to use the Stream Type below."
+        },
+        {
+          "title": "Stream Type",
+          "name": "stream_type",
+          "type": "select",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "options": [
+            "Read",
+            "Starred",
+            "Broadcast",
+            "Liked",
+            "Annotated",
+            "Saved Web Pages"
+          ],
+          "tooltip": "Used only when Stream ID is blank. Ignored otherwise; if both are blank the full reading list is read.",
+          "description": "System stream to read when Stream ID is blank. If both are blank, the full reading list is read."
+        },
+        {
+          "title": "Published After",
+          "name": "start_time",
+          "type": "datetime",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Only return articles published after this datetime.",
+          "description": "Only return articles published after this datetime."
+        },
+        {
+          "title": "Unread Articles Only",
+          "name": "unread_only",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": false,
+          "tooltip": "Exclude articles already marked read.",
+          "description": "Exclude articles already marked as read in Inoreader."
+        },
+        {
+          "title": "Oldest First",
+          "name": "oldest_first",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": false,
+          "tooltip": "Return oldest articles first instead of newest first.",
+          "description": "Return oldest articles first instead of newest first."
+        },
+        {
+          "title": "Include Only Articles Tagged",
+          "name": "include_tag",
+          "type": "select",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "options": [
+            "Read",
+            "Starred",
+            "Broadcast",
+            "Liked",
+            "Annotated",
+            "Saved Web Pages"
+          ],
+          "tooltip": "Restrict results to articles carrying this system tag.",
+          "description": "Restrict results to articles carrying this system tag."
+        },
+        {
+          "title": "Include Only Articles In Folder/Tag",
+          "name": "include_custom_tag",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Folder or tag name, or a full 'user/-/label/<name>' ID. Overrides the selection above.",
+          "description": "Restrict results to articles in this folder or tag. Accepts a plain name or a full 'user/-/label/<name>' ID."
+        },
+        {
+          "title": "Include Annotations",
+          "name": "include_annotations",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": false,
+          "tooltip": "Include user annotations on each article.",
+          "description": "Include user annotations on each article."
+        },
+        {
+          "title": "Maximum Articles",
+          "name": "max_records",
+          "type": "integer",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": 100,
+          "tooltip": "Hard stop on the number of articles returned; the connector pages until it is reached.",
+          "description": "Maximum number of articles to return. Inoreader returns at most 100 per request, so this many/100 requests are spent against the daily quota."
+        }
+      ]
+    },
+    {
+      "operation": "get_item_ids",
+      "title": "Get Article IDs",
+      "description": "Retrieves only the article IDs and timestamps for a stream. Much cheaper than fetching content, and the right way to check 'is there anything new' before spending quota on full articles.",
+      "category": "investigation",
+      "annotation": "get_item_ids",
+      "enabled": true,
+      "output_schema": {
+        "stream_id": "",
+        "count": "",
+        "itemRefs": [
+          {
+            "id": "",
+            "directStreamIds": [],
+            "timestampUsec": ""
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "title": "Stream ID",
+          "name": "stream_id",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Stream to read. Defaults to the full reading list.",
+          "description": "Stream to read. Defaults to the full reading list."
+        },
+        {
+          "title": "Published After",
+          "name": "start_time",
+          "type": "datetime",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Only return articles published after this datetime.",
+          "description": "Only return articles published after this datetime."
+        },
+        {
+          "title": "Unread Articles Only",
+          "name": "unread_only",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": true,
+          "tooltip": "Exclude articles already marked read.",
+          "description": "Exclude articles already marked as read in Inoreader."
+        },
+        {
+          "title": "Oldest First",
+          "name": "oldest_first",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": false,
+          "tooltip": "Return oldest articles first instead of newest first.",
+          "description": "Return oldest articles first instead of newest first."
+        },
+        {
+          "title": "Exclude Folder Tags",
+          "name": "exclude_folder_tags",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": false,
+          "tooltip": "Omit the directStreamIds folder list from each result.",
+          "description": "Omit the folder/tag IDs attached to each article reference."
+        },
+        {
+          "title": "Maximum Article IDs",
+          "name": "max_records",
+          "type": "integer",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": 1000,
+          "tooltip": "Hard stop on the number of IDs returned. This endpoint returns up to 1000 per request.",
+          "description": "Maximum number of article IDs to return. This endpoint returns up to 1000 per request."
+        }
+      ]
+    },
+    {
+      "operation": "get_subscriptions",
+      "title": "Get Subscriptions",
+      "description": "Retrieves every feed the account is subscribed to, with its ID, title, folders, and feed URL.",
+      "category": "investigation",
+      "annotation": "get_subscriptions",
+      "enabled": true,
+      "output_schema": {
+        "subscriptions": [
+          {
+            "id": "",
+            "title": "",
+            "categories": [
+              {
+                "id": "",
+                "label": ""
+              }
+            ],
+            "sortid": "",
+            "firstitemmsec": "",
+            "url": "",
+            "htmlUrl": "",
+            "iconUrl": "",
+            "feedType": ""
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "title": "Include Team Channels",
+          "name": "include_team_assets",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": false,
+          "tooltip": "Include team channels in the result.",
+          "description": "Include team channels in the result."
+        }
+      ]
+    },
+    {
+      "operation": "get_tags",
+      "title": "Get Folders and Tags",
+      "description": "Retrieves the account's folders, tags, and active searches, optionally with unread counts.",
+      "category": "investigation",
+      "annotation": "get_tags",
+      "enabled": true,
+      "output_schema": {
+        "tags": [
+          {
+            "id": "",
+            "sortid": "",
+            "type": "",
+            "unread_count": "",
+            "unseen_count": ""
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "title": "Include Unread Counts",
+          "name": "include_counts",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": true,
+          "tooltip": "Include unread and unseen counts per tag.",
+          "description": "Include unread and unseen counts per tag."
+        },
+        {
+          "title": "Include Team Assets",
+          "name": "include_team_assets",
+          "type": "checkbox",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": false,
+          "tooltip": "Include team-level folders and tags.",
+          "description": "Include team-level folders and tags."
+        }
+      ]
+    },
+    {
+      "operation": "get_unread_counts",
+      "title": "Get Unread Counts",
+      "description": "Retrieves the unread article count per feed, folder, and tag.",
+      "category": "investigation",
+      "annotation": "get_unread_counts",
+      "enabled": true,
+      "output_schema": {
+        "max": "",
+        "unreadcounts": [
+          {
+            "id": "",
+            "count": "",
+            "newestItemTimestampUsec": ""
+          }
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "operation": "get_user_info",
+      "title": "Get User Information",
+      "description": "Retrieves the identity of the Inoreader account the configuration authenticates as. Also used as the health check.",
+      "category": "investigation",
+      "annotation": "get_user_info",
+      "enabled": true,
+      "output_schema": {
+        "userId": "",
+        "userName": "",
+        "userProfileId": "",
+        "userEmail": "",
+        "isBloggerUser": "",
+        "signupTimeSec": "",
+        "isMultiLoginEnabled": ""
+      },
+      "parameters": []
+    },
+    {
+      "operation": "add_subscription",
+      "title": "Add Subscription",
+      "description": "Subscribes the account to a feed URL. Requires the 'write' OAuth scope.",
+      "category": "containment",
+      "annotation": "add_subscription",
+      "enabled": true,
+      "output_schema": {
+        "query": "",
+        "numResults": "",
+        "streamId": "",
+        "streamName": ""
+      },
+      "parameters": [
+        {
+          "title": "Feed URL",
+          "name": "feed_url",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Feed URL to subscribe to. The 'feed/' prefix is added for you if missing.",
+          "description": "Feed URL to subscribe to, e.g. 'https://example.com/releases.atom'. A numResults of 1 means the feed is subscribed, including when it already was."
+        }
+      ]
+    },
+    {
+      "operation": "edit_subscription",
+      "title": "Edit Subscription",
+      "description": "Renames a subscription, moves it between folders, or unsubscribes from it. Requires the 'write' OAuth scope.",
+      "category": "containment",
+      "annotation": "edit_subscription",
+      "enabled": true,
+      "output_schema": {
+        "status": ""
+      },
+      "parameters": [
+        {
+          "title": "Stream ID",
+          "name": "stream_id",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Feed to edit, e.g. 'feed/https://example.com/releases.atom'.",
+          "description": "Feed to edit, e.g. 'feed/https://example.com/releases.atom'. A bare feed URL is accepted."
+        },
+        {
+          "title": "Action",
+          "name": "action",
+          "type": "select",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "options": [
+            "edit",
+            "unsubscribe"
+          ],
+          "value": "edit",
+          "tooltip": "'edit' applies the title/folder changes below; 'unsubscribe' removes the feed.",
+          "description": "'edit' applies the title and folder changes below; 'unsubscribe' removes the feed from the account."
+        },
+        {
+          "title": "New Title",
+          "name": "title",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Rename the subscription.",
+          "description": "New display title for the subscription."
+        },
+        {
+          "title": "Add to Folder",
+          "name": "add_to_folder",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Folder name, or a full 'user/-/label/<name>' ID.",
+          "description": "Folder to add the subscription to. Accepts a plain name or a full 'user/-/label/<name>' ID."
+        },
+        {
+          "title": "Remove from Folder",
+          "name": "remove_from_folder",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Folder name, or a full 'user/-/label/<name>' ID.",
+          "description": "Folder to remove the subscription from. Accepts a plain name or a full 'user/-/label/<name>' ID."
+        }
+      ]
+    },
+    {
+      "operation": "edit_tag",
+      "title": "Tag Articles",
+      "description": "Adds or removes a tag on one or more articles: mark read or unread, star, like, broadcast, or apply a custom folder/tag. Requires the 'write' OAuth scope.",
+      "category": "containment",
+      "annotation": "edit_tag",
+      "enabled": true,
+      "output_schema": {
+        "status": "",
+        "item_ids": [],
+        "added": "",
+        "removed": ""
+      },
+      "parameters": [
+        {
+          "title": "Article IDs",
+          "name": "item_ids",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "One or more article IDs, comma-separated or as a list.",
+          "description": "Article IDs to tag, comma-separated or supplied as a list. All are sent in a single request."
+        },
+        {
+          "title": "Add Tag",
+          "name": "add_tag",
+          "type": "select",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "options": [
+            "Read",
+            "Starred",
+            "Broadcast",
+            "Liked",
+            "Annotated",
+            "Saved Web Pages"
+          ],
+          "tooltip": "System tag to add to each article.",
+          "description": "System tag to add to each article."
+        },
+        {
+          "title": "Add Custom Folder/Tag",
+          "name": "add_custom_tag",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Custom tag name, or a full 'user/-/label/<name>' ID. Overrides the selection above.",
+          "description": "Custom folder or tag to add. Accepts a plain name or a full 'user/-/label/<name>' ID."
+        },
+        {
+          "title": "Remove Tag",
+          "name": "remove_tag",
+          "type": "select",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "options": [
+            "Read",
+            "Starred",
+            "Broadcast",
+            "Liked",
+            "Annotated",
+            "Saved Web Pages"
+          ],
+          "tooltip": "System tag to remove from each article. Removing 'Read' marks articles unread.",
+          "description": "System tag to remove from each article. Removing 'Read' marks the articles unread."
+        },
+        {
+          "title": "Remove Custom Folder/Tag",
+          "name": "remove_custom_tag",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Custom tag name, or a full 'user/-/label/<name>' ID. Overrides the selection above.",
+          "description": "Custom folder or tag to remove. Accepts a plain name or a full 'user/-/label/<name>' ID."
+        }
+      ]
+    },
+    {
+      "operation": "mark_all_as_read",
+      "title": "Mark Stream as Read",
+      "description": "Marks every article in a stream as read, optionally only those older than a given time. Requires the 'write' OAuth scope.",
+      "category": "containment",
+      "annotation": "mark_all_as_read",
+      "enabled": true,
+      "output_schema": {
+        "status": "",
+        "stream_id": ""
+      },
+      "parameters": [
+        {
+          "title": "Stream ID",
+          "name": "stream_id",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Stream to mark read. Defaults to the full reading list.",
+          "description": "Stream to mark read, e.g. 'user/-/label/Patch Intel'. Defaults to the full reading list."
+        },
+        {
+          "title": "Only Articles Older Than",
+          "name": "older_than",
+          "type": "datetime",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Articles published after this datetime stay unread.",
+          "description": "Only mark articles published before this datetime. Anything newer stays unread."
+        }
+      ]
+    }
+  ]
+}
