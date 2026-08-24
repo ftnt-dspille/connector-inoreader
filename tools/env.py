@@ -32,7 +32,12 @@ def load(path: Path | None = None) -> dict[str, str]:
                 continue
             key, _, value = line.partition("=")
             values[key.strip()] = value.strip().strip('"').strip("'")
-    for key in list(values) + [*REQUIRED, "INOREADER_STREAM_ID", "INOREADER_REDIRECT_URI"]:
+    for key in list(values) + [
+        *REQUIRED,
+        "INOREADER_STREAM_ID",
+        "INOREADER_REDIRECT_URI",
+        "INOREADER_SERVER_URL",
+    ]:
         if os.environ.get(key):
             values[key] = os.environ[key]
     return values
@@ -49,7 +54,9 @@ def to_config(values: dict[str, str]) -> dict[str, object]:
     what the live check is proving.
     """
     return {
-        "server_url": "https://www.inoreader.com",
+        # INOREADER_SERVER_URL lets the whole toolchain be pointed at
+        # tools/mock_server.py instead of the real service.
+        "server_url": values.get("INOREADER_SERVER_URL") or "https://www.inoreader.com",
         "app_id": values["INOREADER_APP_ID"],
         "app_key": values["INOREADER_APP_KEY"],
         "client_id": values["INOREADER_CLIENT_ID"],
@@ -63,7 +70,7 @@ def stream_id(values: dict[str, str]) -> str:
     return values.get("INOREADER_STREAM_ID") or "user/-/state/com.google/reading-list"
 
 
-def persist_refresh_token(config: dict, path: Path | None = None) -> bool:
+def persist_refresh_token(config: dict, started_with: str | None = None, path: Path | None = None) -> bool:
     """Write a rotated refresh token back into `.env.inoreader`.
 
     Inoreader may return a NEW refresh token on refresh. On the appliance the
@@ -78,12 +85,26 @@ def persist_refresh_token(config: dict, path: Path | None = None) -> bool:
     env_path = path or ENV_PATH
     if not current or not env_path.exists():
         return False
+
+    # Only a GENUINE rotation gets written: the token now on the config differs
+    # from the one this run STARTED with. Comparing against the file instead
+    # destroyed a real token once -- an env-var override supplied a dummy token,
+    # the file still held the real one, and "they differ" was read as "it
+    # rotated". The file is not the source of truth for what we sent.
+    if current == str(started_with or ""):
+        return False
+    if not _is_real_service(config):
+        return False
+
     lines = env_path.read_text().splitlines()
     for i, line in enumerate(lines):
         if line.strip().startswith("INOREADER_REFRESH_TOKEN="):
-            if line.split("=", 1)[1].strip() == current:
-                return False
             lines[i] = f"INOREADER_REFRESH_TOKEN={current}"
             env_path.write_text("\n".join(lines) + "\n")
             return True
     return False
+
+
+def _is_real_service(config: dict) -> bool:
+    """False when pointed at tools/mock_server.py, which hands out fake tokens."""
+    return "inoreader.com" in str(config.get("server_url") or "")

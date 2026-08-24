@@ -1,0 +1,20 @@
+{
+  "max": 1000000,
+  "unreadcounts": [
+    {
+      "count": 99,
+      "id": "user/-/state/com.google/reading-list",
+      "newestItemTimestampUsec": "1787582135184448"
+    },
+    {
+      "count": "0",
+      "id": "user/-/state/com.google/starred",
+      "newestItemTimestampUsec": "0"
+    },
+    {
+      "count": 21,
+      "id": "feed/https://news.google.com/news/rss/search/section/q/%28%22Cisco%22%20OR%20%22Palo%20Alto%22%20OR%20%22SharePoint%22%20OR%20%22Confluence%22%20OR%20%22Citrix%22%20OR%20%22Attlasan%22%20OR%20%22F5%22%29%20AND%20%28%22vulnerability%22%20OR%20%22CVE%22%20OR%20%22Common%20Vulnerability%20and%20Exploits%22%29/%28%22Cisco%22%20OR%20%22Palo%20Alto%22%20OR%20%22SharePoint%22%20OR%20%22Confluence%22%20OR%20%22Citrix%22%20OR%20%22Attlasan%22%20OR%20%22F5%22%29%20AND%20%28%22vulnerability%22%20OR%20%22CVE%22%20OR%20%22Common%20Vulnerability%20and%20Exploits%22%29?hl=en&gl=US&ned=us",
+      "newestItemTimestampUsec": "1787564079750414"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "count": 5,
+  "itemRefs": [
+    {
+      "directStreamIds": [],
+      "id": "50295299625",
+      "timestampUsec": "1787582135184448"
+    },
+    {
+      "directStreamIds": [],
+      "id": "50292361760",
+      "timestampUsec": "1787564079750414"
+    },
+    {
+      "directStreamIds": [],
+      "id": "50281481016",
+      "timestampUsec": "1787453689416295"
+    }
+  ],
+  "stream_id": "user/-/state/com.google/reading-list"
+}

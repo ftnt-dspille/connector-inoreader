@@ -1,0 +1,37 @@
+{
+  "subscriptions": [
+    {
+      "categories": [],
+      "feedType": "rss",
+      "firstitemmsec": 1786034354507028,
+      "htmlUrl": "https://www.us-cert.gov/ics/advisories/advisories.xml",
+      "iconUrl": "https://www.inoreader.com/fetch_icon/us-cert.gov?w=16&cs=3496940550&v=1",
+      "id": "feed/https://www.us-cert.gov/ics/advisories/advisories.xml",
+      "sortid": "074A52E2",
+      "title": "CISA ICS Advisories",
+      "url": "https://www.us-cert.gov/ics/advisories/advisories.xml"
+    },
+    {
+      "categories": [],
+      "feedType": "rss",
+      "firstitemmsec": 1785172486657686,
+      "htmlUrl": "https://us-cert.cisa.gov/",
+      "iconUrl": "https://www.inoreader.com/fetch_icon/us-cert.cisa.gov?w=16&cs=1606392554&v=1",
+      "id": "feed/https://us-cert.cisa.gov/ncas/bulletins.xml",
+      "sortid": "074A52E1",
+      "title": "CISA Bulletins",
+      "url": "https://us-cert.cisa.gov/ncas/bulletins.xml"
+    },
+    {
+      "categories": [],
+      "feedType": "rss",
+      "firstitemmsec": 1785183425402683,
+      "htmlUrl": "https://us-cert.cisa.gov/",
+      "iconUrl": "https://www.inoreader.com/fetch_icon/us-cert.cisa.gov?w=16&cs=1606392554&v=1",
+      "id": "feed/https://us-cert.cisa.gov/ncas/current-activity.xml",
+      "sortid": "074A52DF",
+      "title": "CISA Current Activity",
+      "url": "https://us-cert.cisa.gov/ncas/current-activity.xml"
+    }
+  ]
+}

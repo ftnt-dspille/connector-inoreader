@@ -336,3 +336,49 @@ def test_rate_limit_error_names_the_daily_quota(recorder):
     recorder(FakeResponse(status_code=429, text="Rate limit exceeded"))
     with pytest.raises(ConnectorError, match="DAILY per-zone quota"):
         ops.get_user_info(_config(), {})
+
+
+# ------------------------------------------------- local credential handling ----
+
+
+def test_rotated_token_is_persisted_only_when_it_actually_rotated(tmp_path, monkeypatch):
+    """Regression: a differing file value is NOT evidence of a rotation.
+
+    An env-var override once supplied a dummy token while the file still held the
+    real one; "they differ" was read as "it rotated" and the real token was
+    overwritten with the dummy. The comparison must be against the value the run
+    STARTED with, not against whatever the file happens to say.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import env as env_helper
+
+    env_file = tmp_path / ".env.inoreader"
+    env_file.write_text("INOREADER_REFRESH_TOKEN=the-real-token\n")
+
+    config = {"refresh_token": "dummy-from-env", "server_url": "https://www.inoreader.com"}
+    wrote = env_helper.persist_refresh_token(config, started_with="dummy-from-env", path=env_file)
+
+    assert wrote is False
+    assert "the-real-token" in env_file.read_text()
+
+    config["refresh_token"] = "genuinely-rotated"
+    assert env_helper.persist_refresh_token(config, started_with="dummy-from-env", path=env_file) is True
+    assert "genuinely-rotated" in env_file.read_text()
+
+
+def test_mock_server_never_persists_a_token(tmp_path):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import env as env_helper
+
+    env_file = tmp_path / ".env.inoreader"
+    env_file.write_text("INOREADER_REFRESH_TOKEN=the-real-token\n")
+    config = {"refresh_token": "mock-token", "server_url": "http://127.0.0.1:8099"}
+
+    assert env_helper.persist_refresh_token(config, started_with="started", path=env_file) is False
+    assert "the-real-token" in env_file.read_text()

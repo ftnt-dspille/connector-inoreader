@@ -151,6 +151,36 @@ rate-limit headers actually say your quota is. Add `--write` to prove the write
 scope (it stars and immediately un-stars one article, leaving the account as it
 was found), or `--json` for CI.
 
+### Recorded fixtures and the mock server
+
+`tools/live_check.py` caches every response it receives; `tools/make_fixtures.py`
+scrubs those captures (user id, name, email, numeric stream ids) and writes
+`tests/fixtures/*.json`, which **are** committed. Feed titles, article titles and
+URLs are deliberately left intact -- they are public publisher output and the
+exact values a downstream mapping keys on, so inventing them would make the
+fixture evidence of nothing.
+
+```
+python tools/live_check.py        # capture (4 requests)
+python tools/make_fixtures.py     # scrub -> tests/fixtures/
+python tools/make_fixtures.py --check   # fail if fixtures drift from the capture
+```
+
+`tests/test_recorded_payloads.py` asserts the connector's behaviour against those
+real payloads -- no credentials, no quota, runs in CI like any other unit test.
+
+The same fixtures can be **served to the connector**:
+
+```
+python tools/mock_server.py       # http://127.0.0.1:8099
+```
+
+Point a FortiSOAR connector configuration's **Server URL** at that address and
+every read operation answers from the fixtures, with no internet, no credentials
+(the token endpoint hands one to anybody -- so never expose it) and no quota
+spend. Good for a demo without egress, or for iterating on a playbook's parse
+step against stable input.
+
 ### Mind the quota
 
 Inoreader's limit is a **daily** per-zone budget, and it is small -- 100 requests

@@ -112,7 +112,9 @@ def _run(report: Report, name: str, fn, cache_as: str | None = None):
     """
     try:
         result = fn()
-        if cache_as and result is not None:
+        # Fixtures must only ever be built from the real service; caching a mock
+        # response here would quietly poison tests/fixtures/ on the next rebuild.
+        if cache_as and result is not None and env_helper._is_real_service(config_in_use):
             cache_helper.save(cache_as, result)
         return result
     except ConnectorError as err:
@@ -125,6 +127,9 @@ def _run(report: Report, name: str, fn, cache_as: str | None = None):
 # Refuse to spend the day's remaining reads on assertions. 15 leaves room for a
 # demo run (1 request) and a few health checks even on a 100/day account.
 MIN_ZONE1_REMAINING = 15
+
+# Set by main(); _run() consults it to decide whether a response may be cached.
+config_in_use: dict = {}
 
 
 def _remaining(meter: "Meter") -> int | None:
@@ -150,6 +155,8 @@ def main() -> int:
         return 2
 
     config = env_helper.to_config(values)
+    global config_in_use
+    config_in_use = config
     stream = env_helper.stream_id(values)
     meter = Meter()
     meter.install()
@@ -264,7 +271,7 @@ def main() -> int:
     elif write_mode:
         report.record("edit-tag (write scope)", False, "skipped: no article to tag")
 
-    if env_helper.persist_refresh_token(config):
+    if env_helper.persist_refresh_token(config, started_with=values.get("INOREADER_REFRESH_TOKEN")):
         report.record(
             "rotated refresh token persisted",
             True,

@@ -1,0 +1,16 @@
+{
+  "tags": [
+    {
+      "id": "user/-/state/com.google/starred",
+      "sortid": "FFFFFFFF"
+    },
+    {
+      "id": "user/-/state/com.google/broadcast",
+      "sortid": "FFFFFFFE"
+    },
+    {
+      "id": "user/-/state/com.google/blogger-following",
+      "sortid": "FFFFFFFD"
+    }
+  ]
+}

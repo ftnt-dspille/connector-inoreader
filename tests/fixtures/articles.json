@@ -1,0 +1,177 @@
+{
+  "articles": [
+    {
+      "author": "CISA",
+      "categories": [
+        "user/-/state/com.google/reading-list",
+        "user/-/state/com.google/fresh"
+      ],
+      "content": "<div> \n<h2>High Vulnerabilities</h2> \n<table style=\"table-layout:fixed;width:100%;\"> \n<thead> \n<tr> \n<th style=\"width:24%;\"><span>Primary</span><br><span>Vendor</span> -- Product</th> \n<th style=\"width:44%;\">Description</th> \n<th style=\"width:10%;\">Published</th> \n<th style=\"width:8%;\">CVSS Score</th> \n<th style=\"width:7%;\">Source Info</th> \n</tr> \n</thead> \n<tbody> \n<tr> \n<td>@fastify/static--@fa... [truncated for fixture]",
+      "feed_id": "feed/https://us-cert.cisa.gov/ncas/bulletins.xml",
+      "feed_title": "CISA Bulletins",
+      "feed_url": "https://us-cert.cisa.gov/",
+      "is_read": false,
+      "labels": [],
+      "published": 1785150718,
+      "published_iso": "2026-07-27T11:11:58+00:00",
+      "raw": {
+        "alternate": [
+          {
+            "href": "https://www.cisa.gov/news-events/bulletins/sb26-208",
+            "type": "text/html"
+          }
+        ],
+        "annotations": [],
+        "author": "CISA",
+        "canonical": [
+          {
+            "href": "https://www.cisa.gov/news-events/bulletins/sb26-208"
+          }
+        ],
+        "categories": [
+          "user/-/state/com.google/reading-list",
+          "user/-/state/com.google/fresh"
+        ],
+        "comments": [],
+        "commentsNum": -1,
+        "crawlTimeMsec": "1785172486658",
+        "id": "tag:google.com,2005:reader/item/0000000ba4dc58ca",
+        "likingUsers": [],
+        "origin": {
+          "htmlUrl": "https://us-cert.cisa.gov/",
+          "streamId": "feed/https://us-cert.cisa.gov/ncas/bulletins.xml",
+          "title": "CISA Bulletins"
+        },
+        "published": 1785150718,
+        "summaries": [],
+        "summary": {
+          "content": "<div> \n<h2>High Vulnerabilities</h2> \n<table style=\"table-layout:fixed;width:100%;\"> \n<thead> \n<tr> \n<th style=\"width:24%;\"><span>Primary</span><br><span>Vendor</span> -- Product</th> \n<th style=\"width:44%;\">Description</th> \n<th style=\"width:10%;\">Published</th> \n<th style=\"width:8%;\">CVSS Score</th> \n<th style=\"width:7%;\">Source Info</th> \n</tr> \n</thead> \n<tbody> \n<tr> \n<td>@fastify/static--@fa... [truncated for fixture]",
+          "direction": "ltr"
+        },
+        "timestampUsec": "1785172486657687",
+        "title": "Vulnerability Summary for the Week of July 20, 2026",
+        "updated": 0
+      },
+      "source_id": "tag:google.com,2005:reader/item/0000000ba4dc58ca",
+      "title": "Vulnerability Summary for the Week of July 20, 2026",
+      "updated": 0,
+      "url": "https://www.cisa.gov/news-events/bulletins/sb26-208"
+    },
+    {
+      "author": "CISA",
+      "categories": [
+        "user/-/state/com.google/reading-list",
+        "user/-/state/com.google/read"
+      ],
+      "content": "<p>CISA has added two new vulnerabilities to its <a href=\"https://www.cisa.gov/known-exploited-vulnerabilities-catalog\">Known Exploited Vulnerabilities (KEV) Catalog</a>, based on evidence of active exploitation.</p> \n<ul type=\"square\"> \n<li><a href=\"https://www.cve.org/CVERecord?id=CVE-2025-68686\">CVE-2025-68686</a> Fortinet FortiOS Exposure of Sensitive Information to an Unauthorized Actor Vulne... [truncated for fixture]",
+      "feed_id": "feed/https://www.cisa.gov/cybersecurity-advisories/all.xml",
+      "feed_title": "CISA Analysis Reports",
+      "feed_url": "https://www.cisa.gov/",
+      "is_read": false,
+      "labels": [],
+      "published": 1785153600,
+      "published_iso": "2026-07-27T12:00:00+00:00",
+      "raw": {
+        "alternate": [
+          {
+            "href": "https://www.cisa.gov/news-events/alerts/2026/07/27/cisa-adds-two-known-exploited-vulnerabilities-catalog",
+            "type": "text/html"
+          }
+        ],
+        "annotations": [],
+        "author": "CISA",
+        "canonical": [
+          {
+            "href": "https://www.cisa.gov/news-events/alerts/2026/07/27/cisa-adds-two-known-exploited-vulnerabilities-catalog"
+          }
+        ],
+        "categories": [
+          "user/-/state/com.google/reading-list",
+          "user/-/state/com.google/read"
+        ],
+        "comments": [],
+        "commentsNum": -1,
+        "crawlTimeMsec": "1785181841044",
+        "id": "tag:google.com,2005:reader/item/0000000ba4ef988a",
+        "likingUsers": [],
+        "origin": {
+          "htmlUrl": "https://www.cisa.gov/",
+          "streamId": "feed/https://www.cisa.gov/cybersecurity-advisories/all.xml",
+          "title": "CISA Analysis Reports"
+        },
+        "published": 1785153600,
+        "summaries": [],
+        "summary": {
+          "content": "<p>CISA has added two new vulnerabilities to its <a href=\"https://www.cisa.gov/known-exploited-vulnerabilities-catalog\">Known Exploited Vulnerabilities (KEV) Catalog</a>, based on evidence of active exploitation.</p> \n<ul type=\"square\"> \n<li><a href=\"https://www.cve.org/CVERecord?id=CVE-2025-68686\">CVE-2025-68686</a> Fortinet FortiOS Exposure of Sensitive Information to an Unauthorized Actor Vulne... [truncated for fixture]",
+          "direction": "ltr"
+        },
+        "timestampUsec": "1785181841043906",
+        "title": "CISA Adds Two Known Exploited Vulnerabilities to Catalog",
+        "updated": 0
+      },
+      "source_id": "tag:google.com,2005:reader/item/0000000ba4ef988a",
+      "title": "CISA Adds Two Known Exploited Vulnerabilities to Catalog",
+      "updated": 0,
+      "url": "https://www.cisa.gov/news-events/alerts/2026/07/27/cisa-adds-two-known-exploited-vulnerabilities-catalog"
+    },
+    {
+      "author": "CISA",
+      "categories": [
+        "user/-/state/com.google/reading-list",
+        "user/-/state/com.google/fresh"
+      ],
+      "content": "<p>CISA has added two new vulnerabilities to its <a href=\"https://www.cisa.gov/known-exploited-vulnerabilities-catalog\">Known Exploited Vulnerabilities (KEV) Catalog</a>, based on evidence of active exploitation.</p> \n<ul type=\"square\"> \n<li><a href=\"https://www.cve.org/CVERecord?id=CVE-2025-68686\">CVE-2025-68686</a> Fortinet FortiOS Exposure of Sensitive Information to an Unauthorized Actor Vulne... [truncated for fixture]",
+      "feed_id": "feed/https://us-cert.cisa.gov/ncas/current-activity.xml",
+      "feed_title": "CISA Current Activity",
+      "feed_url": "https://us-cert.cisa.gov/",
+      "is_read": false,
+      "labels": [],
+      "published": 1785153600,
+      "published_iso": "2026-07-27T12:00:00+00:00",
+      "raw": {
+        "alternate": [
+          {
+            "href": "https://www.cisa.gov/news-events/alerts/2026/07/27/cisa-adds-two-known-exploited-vulnerabilities-catalog",
+            "type": "text/html"
+          }
+        ],
+        "annotations": [],
+        "author": "CISA",
+        "canonical": [
+          {
+            "href": "https://www.cisa.gov/news-events/alerts/2026/07/27/cisa-adds-two-known-exploited-vulnerabilities-catalog"
+          }
+        ],
+        "categories": [
+          "user/-/state/com.google/reading-list",
+          "user/-/state/com.google/fresh"
+        ],
+        "comments": [],
+        "commentsNum": -1,
+        "crawlTimeMsec": "1785183425403",
+        "id": "tag:google.com,2005:reader/item/0000000ba4f2a412",
+        "likingUsers": [],
+        "origin": {
+          "htmlUrl": "https://us-cert.cisa.gov/",
+          "streamId": "feed/https://us-cert.cisa.gov/ncas/current-activity.xml",
+          "title": "CISA Current Activity"
+        },
+        "published": 1785153600,
+        "summaries": [],
+        "summary": {
+          "content": "<p>CISA has added two new vulnerabilities to its <a href=\"https://www.cisa.gov/known-exploited-vulnerabilities-catalog\">Known Exploited Vulnerabilities (KEV) Catalog</a>, based on evidence of active exploitation.</p> \n<ul type=\"square\"> \n<li><a href=\"https://www.cve.org/CVERecord?id=CVE-2025-68686\">CVE-2025-68686</a> Fortinet FortiOS Exposure of Sensitive Information to an Unauthorized Actor Vulne... [truncated for fixture]",
+          "direction": "ltr"
+        },
+        "timestampUsec": "1785183425402684",
+        "title": "CISA Adds Two Known Exploited Vulnerabilities to Catalog",
+        "updated": 0
+      },
+      "source_id": "tag:google.com,2005:reader/item/0000000ba4f2a412",
+      "title": "CISA Adds Two Known Exploited Vulnerabilities to Catalog",
+      "updated": 0,
+      "url": "https://www.cisa.gov/news-events/alerts/2026/07/27/cisa-adds-two-known-exploited-vulnerabilities-catalog"
+    }
+  ],
+  "count": 5,
+  "stream_id": "user/-/state/com.google/reading-list"
+}
