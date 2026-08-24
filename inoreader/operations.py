@@ -29,14 +29,19 @@ from .constants import (
 
 logger = get_logger(CONNECTOR_NAME)
 
+# Persisting the refreshed token back onto the configuration is what keeps a
+# rotated refresh token (Inoreader may hand back a new one) and stops every
+# operation spending a request to re-mint an access token. The platform exports
+# the helper from connectors.core.utils -- which is where every Fortinet
+# connector doing OAuth takes it from -- and also re-exports it from
+# connectors.core.connector on some releases.
 try:
-    # Available on the FortiSOAR appliance only. Used to persist the refreshed
-    # OAuth token back onto the configuration so every operation does not spend
-    # a Zone 1 request minting a new one -- and, more importantly, so a rotated
-    # refresh token is not lost (Inoreader may hand back a new one).
-    from connectors.core.connector import update_connnector_config
-except ImportError:  # pragma: no cover - local dev / unit tests
-    update_connnector_config = None
+    from connectors.core.utils import update_connnector_config
+except ImportError:  # pragma: no cover
+    try:
+        from connectors.core.connector import update_connnector_config
+    except ImportError:  # pragma: no cover - local dev / unit tests
+        update_connnector_config = None
 
 try:
     from integrations.crudhub import trigger_ingest_playbook
@@ -55,8 +60,14 @@ class Inoreader(object):
     so both are sent when both are configured.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, connector_info=None):
         self.config = config
+        # {'connector_name': ..., 'connector_version': ...}, built by connector.py
+        # from info.json. Taking the version from the manifest at runtime rather
+        # than from a constant here is deliberate: a constant drifts from
+        # info.json on the next version bump, and the config update then targets
+        # a version that does not exist.
+        self.connector_info = connector_info or {}
         server_url = (config.get('server_url') or DEFAULT_SERVER_URL).strip().rstrip('/')
         if not server_url.startswith('http'):
             server_url = 'https://' + server_url
@@ -126,17 +137,35 @@ class Inoreader(object):
         return access_token
 
     def _persist_config(self, updated):
+        """Write the refreshed token back onto the connector configuration.
+
+        The whole config dict is passed through, config_id included, which is the
+        shape every Fortinet OAuth connector uses (see azure-active-directory's
+        microsoft_api_auth.py and fortinet-fortiflex's fortiflex_api_auth.py).
+        """
         if not update_connnector_config:
             return
+        config_id = self.config.get('config_id')
+        if not config_id:
+            # Off-box, or an operation invoked without a stored configuration.
+            logger.info('No config_id on the configuration; the refreshed token will not be persisted')
+            return
+        self.config.update(updated)
         try:
-            config_id = self.config.get('config_id')
-            merged = {k: v for k, v in self.config.items() if k != 'config_id'}
-            merged.update(updated)
-            update_connnector_config(connector_name=CONNECTOR_NAME, version=CONNECTOR_VERSION,
-                                     updated_config=merged, configId=config_id)
+            update_connnector_config(
+                self.connector_info.get('connector_name') or CONNECTOR_NAME,
+                self.connector_info.get('connector_version') or CONNECTOR_VERSION,
+                self.config,
+                config_id,
+            )
         except Exception as err:
-            # Not fatal: the token still works for this call, it just is not cached.
-            logger.warning('Could not persist the refreshed Inoreader token: {}'.format(err))
+            # Not fatal for THIS call -- the token in hand still works. It is
+            # expensive if it keeps happening, though: every subsequent operation
+            # re-mints, and a rotated refresh token is lost outright, so this is a
+            # warning rather than a debug line.
+            logger.warning(
+                'Could not persist the refreshed Inoreader token (every operation will re-mint, '
+                'and a rotated refresh token would be lost): {}'.format(err))
 
     def _headers(self, extra=None):
         headers = {'Accept': 'application/json'}
@@ -233,6 +262,11 @@ def _log_rate_limits(response):
         logger.info('Inoreader rate limits: {}'.format(seen))
 
 
+def _client(config, kwargs):
+    """Build the API client, carrying connector_info through from execute()."""
+    return Inoreader(config, connector_info=(kwargs or {}).get('connector_info'))
+
+
 def _build_params(params):
     return {k: v for k, v in (params or {}).items() if v is not None and v != '' and v != {} and v != []}
 
@@ -269,12 +303,12 @@ def _resolve_tag(tag_name, custom_tag):
 # ------------------------------------------------------------- operations --
 
 def get_user_info(config, params, **kwargs):
-    return Inoreader(config).make_request('/user-info')
+    return _client(config, kwargs).make_request('/user-info')
 
 
 def get_subscriptions(config, params, **kwargs):
     query = _build_params({'team_assets': 1 if params.get('include_team_assets') else None})
-    return Inoreader(config).make_request('/subscription/list', params=query)
+    return _client(config, kwargs).make_request('/subscription/list', params=query)
 
 
 def add_subscription(config, params, **kwargs):
@@ -285,7 +319,7 @@ def add_subscription(config, params, **kwargs):
         feed_url = 'feed/' + feed_url
     # quickadd is a POST but takes its argument in the query string, and unlike
     # most write endpoints it answers JSON.
-    return Inoreader(config).make_request('/subscription/quickadd', method='POST',
+    return _client(config, kwargs).make_request('/subscription/quickadd', method='POST',
                                           params={'quickadd': feed_url})
 
 
@@ -298,7 +332,7 @@ def edit_subscription(config, params, **kwargs):
         'a': _resolve_tag(None, params.get('add_to_folder')),
         'r': _resolve_tag(None, params.get('remove_from_folder')),
     })
-    return Inoreader(config).make_request('/subscription/edit', method='POST', params=query)
+    return _client(config, kwargs).make_request('/subscription/edit', method='POST', params=query)
 
 
 def get_tags(config, params, **kwargs):
@@ -307,15 +341,15 @@ def get_tags(config, params, **kwargs):
         'counts': 1 if params.get('include_counts') else None,
         'team_assets': 1 if params.get('include_team_assets') else None,
     })
-    return Inoreader(config).make_request('/tag/list', params=query)
+    return _client(config, kwargs).make_request('/tag/list', params=query)
 
 
 def get_unread_counts(config, params, **kwargs):
-    return Inoreader(config).make_request('/unread-count')
+    return _client(config, kwargs).make_request('/unread-count')
 
 
 def get_stream_contents(config, params, **kwargs):
-    client = Inoreader(config)
+    client = _client(config, kwargs)
     stream_id = _resolve_stream_id(params)
     max_records = int(params.get('max_records') or MAX_PAGE_SIZE_CONTENTS)
     query = _build_params({
@@ -331,7 +365,7 @@ def get_stream_contents(config, params, **kwargs):
 
 
 def get_item_ids(config, params, **kwargs):
-    client = Inoreader(config)
+    client = _client(config, kwargs)
     stream_id = _resolve_stream_id(params)
     max_records = int(params.get('max_records') or MAX_PAGE_SIZE_IDS)
     query = _build_params({
@@ -360,7 +394,7 @@ def edit_tag(config, params, **kwargs):
         query['a'] = add_tag
     if remove_tag:
         query['r'] = remove_tag
-    result = Inoreader(config).make_request('/edit-tag', method='POST', params=query)
+    result = _client(config, kwargs).make_request('/edit-tag', method='POST', params=query)
     return {'status': result.get('status', 'Success'), 'item_ids': item_ids,
             'added': add_tag, 'removed': remove_tag}
 
@@ -373,13 +407,13 @@ def mark_all_as_read(config, params, **kwargs):
         # Microseconds, not seconds: articles newer than `ts` stay unread.
         'ts': int(older_than * 1000000) if older_than else None,
     })
-    result = Inoreader(config).make_request('/mark-all-as-read', method='POST', params=query)
+    result = _client(config, kwargs).make_request('/mark-all-as-read', method='POST', params=query)
     return {'status': result.get('status', 'Success'), 'stream_id': stream_id}
 
 
 def fetch_articles(config, params, **kwargs):
     """Ingestion entry point: pull new articles and hand them to the create playbook."""
-    client = Inoreader(config)
+    client = _client(config, kwargs)
     stream_id = _resolve_stream_id(params)
     max_records = int(params.get('max_records') or MAX_PAGE_SIZE_CONTENTS)
     start_time = _to_epoch_seconds(params.get('last_pull_datetime'))
@@ -397,7 +431,7 @@ def fetch_articles(config, params, **kwargs):
         # Marking read is the de-duplication ledger when the caller polls with
         # unread_only: it makes the next run's window self-evident.
         edit_tag(config, {'item_ids': [item.get('id') for item in items if item.get('id')],
-                          'add_tag': 'Read'})
+                          'add_tag': 'Read'}, **kwargs)
 
     normalized = [_normalize_article(item) for item in items]
     if params.get('create_pb_id') and trigger_ingest_playbook:
@@ -472,7 +506,7 @@ def _epoch_to_iso(value):
 
 
 def _check_health(config, **kwargs):
-    client = Inoreader(config)
+    client = _client(config, kwargs)
     try:
         response = client.make_request('/user-info')
     except ConnectorError:

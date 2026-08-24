@@ -14,6 +14,19 @@ logger = get_logger(CONNECTOR_NAME)
 
 
 class Inoreader(Connector):
+    def _connector_info(self):
+        """Name and version, read from info.json at runtime.
+
+        The version is what update_connnector_config() targets when the connector
+        persists a refreshed OAuth token. Taking it from the manifest rather than
+        from a constant in the code is what keeps the two from drifting on a
+        version bump -- the same thing every Fortinet OAuth connector does.
+        """
+        return {
+            'connector_name': self._info_json.get('name'),
+            'connector_version': self._info_json.get('version'),
+        }
+
     def execute(self, config, operation, params, **kwargs):
         logger.info('In execute() Operation: {}'.format(operation))
         action = operations.get(operation)
@@ -21,6 +34,7 @@ class Inoreader(Connector):
             raise ConnectorError('Unsupported operation: {}'.format(operation))
         # FCP/TIP passes this through; the operation signatures do not take it.
         kwargs.pop('connector_name', None)
+        kwargs['connector_info'] = self._connector_info()
         try:
             return action(config, params, **kwargs)
         except ConnectorError:
@@ -30,4 +44,4 @@ class Inoreader(Connector):
             raise ConnectorError('{}'.format(err))
 
     def check_health(self, config):
-        return _check_health(config)
+        return _check_health(config, connector_info=self._connector_info())

@@ -1,3 +1,13 @@
+### 1.0.3
+
+Token maintenance now follows the platform convention used by Fortinet's own
+OAuth connectors: the refreshed token is written back with
+`update_connnector_config(name, version, config, config_id)`, the version is read
+from `info.json` at runtime rather than from a constant that can drift, and the
+whole configuration dict is passed through.
+
+Adds recorded-payload tests and a fixture-serving mock (`tools/mock_server.py`).
+
 ### 1.0.2
 
 A failed OAuth token refresh no longer has its message replaced by the generic

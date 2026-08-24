@@ -4,7 +4,7 @@
 
 [project]
 name = "connector-inoreader"
-version = "1.0.2"
+version = "1.0.3"
 description = "FortiSOAR Inoreader connector -- read RSS/Atom feeds, folders, and article streams over the Inoreader Reader API."
 requires-python = ">=3.10"
 license = { text = "MIT" }

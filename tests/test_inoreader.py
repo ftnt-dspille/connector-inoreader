@@ -382,3 +382,106 @@ def test_mock_server_never_persists_a_token(tmp_path):
 
     assert env_helper.persist_refresh_token(config, started_with="started", path=env_file) is False
     assert "the-real-token" in env_file.read_text()
+
+
+# --------------------------------------------- appliance config persistence ----
+
+
+def test_refreshed_token_is_written_back_to_the_connector_configuration(monkeypatch, recorder):
+    """The appliance-side half of token maintenance.
+
+    Matches the shape every Fortinet OAuth connector uses: the WHOLE config dict
+    (config_id included) plus the name and version, passed positionally.
+    """
+    recorder(FakeResponse(payload={"userId": "1"}))
+    monkeypatch.setattr(
+        ops.requests,
+        "post",
+        lambda url, data=None, **kw: FakeResponse(
+            payload={"access_token": "fresh", "expires_in": 3600, "refresh_token": "rotated"}
+        ),
+    )
+    calls = []
+    monkeypatch.setattr(ops, "update_connnector_config", lambda *a, **kw: calls.append((a, kw)))
+
+    config = _config()
+    config["access_token_expiry"] = 0
+    config["config_id"] = "cfg-uuid-1"
+
+    ops.get_user_info(
+        config, {}, connector_info={"connector_name": "inoreader", "connector_version": "9.9.9"}
+    )
+
+    assert len(calls) == 1
+    args, _ = calls[0]
+    assert args[0] == "inoreader"
+    # The version comes from info.json via connector.py, NOT from constants.py --
+    # a constant drifts from the manifest on the next bump and the update then
+    # targets a version that does not exist.
+    assert args[1] == "9.9.9"
+    assert args[2]["refresh_token"] == "rotated"
+    assert args[2]["access_token"] == "fresh"
+    assert args[2]["config_id"] == "cfg-uuid-1"
+    assert args[3] == "cfg-uuid-1"
+
+
+def test_no_config_id_means_no_persistence_attempt(monkeypatch, recorder):
+    # Off-box, or invoked without a stored configuration. Persisting would be
+    # meaningless and update_connnector_config would raise on a null id.
+    recorder(FakeResponse(payload={"userId": "1"}))
+    monkeypatch.setattr(
+        ops.requests,
+        "post",
+        lambda url, data=None, **kw: FakeResponse(payload={"access_token": "fresh", "expires_in": 3600}),
+    )
+    calls = []
+    monkeypatch.setattr(ops, "update_connnector_config", lambda *a, **kw: calls.append(a))
+
+    config = _config()
+    config["access_token_expiry"] = 0
+    config.pop("config_id", None)
+
+    ops.get_user_info(config, {})
+    assert calls == []
+
+
+def test_a_failed_write_back_does_not_fail_the_operation(monkeypatch, recorder):
+    # The token in hand still works. Losing the operation over a bookkeeping
+    # failure would turn a warning into an outage.
+    recorder(FakeResponse(payload={"userId": "1"}))
+    monkeypatch.setattr(
+        ops.requests,
+        "post",
+        lambda url, data=None, **kw: FakeResponse(payload={"access_token": "fresh", "expires_in": 3600}),
+    )
+
+    def boom(*a, **kw):
+        raise RuntimeError("crudhub unreachable")
+
+    monkeypatch.setattr(ops, "update_connnector_config", boom)
+
+    config = _config()
+    config["access_token_expiry"] = 0
+    config["config_id"] = "cfg-uuid-1"
+
+    assert ops.get_user_info(config, {})["userId"] == "1"
+
+
+def test_connector_info_version_falls_back_to_the_constant(monkeypatch, recorder):
+    # An operation invoked without connector_info (a direct call, an older
+    # platform) still persists, using the packaged version.
+    recorder(FakeResponse(payload={"userId": "1"}))
+    monkeypatch.setattr(
+        ops.requests,
+        "post",
+        lambda url, data=None, **kw: FakeResponse(payload={"access_token": "fresh", "expires_in": 3600}),
+    )
+    calls = []
+    monkeypatch.setattr(ops, "update_connnector_config", lambda *a, **kw: calls.append(a))
+
+    config = _config()
+    config["access_token_expiry"] = 0
+    config["config_id"] = "cfg-uuid-1"
+
+    ops.get_user_info(config, {})
+    assert calls[0][1] == ops.CONNECTOR_VERSION
