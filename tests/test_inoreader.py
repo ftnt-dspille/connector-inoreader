@@ -485,3 +485,22 @@ def test_connector_info_version_falls_back_to_the_constant(monkeypatch, recorder
 
     ops.get_user_info(config, {})
     assert calls[0][1] == ops.CONNECTOR_VERSION
+
+
+def test_numeric_app_id_from_the_appliance_does_not_crash(recorder):
+    """FortiSOAR stores a digits-only 'text' field as an int.
+
+    An Inoreader App ID is all digits, so the appliance handed the connector
+    `999984443` rather than "999984443" and the health check failed with
+    "'int' object has no attribute 'strip'". Off-box this never happens -- the
+    values come from JSON as strings -- so only a live install caught it.
+    """
+    rec = recorder(FakeResponse(payload={"userId": "1"}))
+    config = _config()
+    config["app_id"] = 999984443
+    config["client_id"] = 999984443
+    config["verify_ssl"] = True
+
+    ops.get_user_info(config, {})
+
+    assert rec.calls[0]["headers"]["AppId"] == "999984443"

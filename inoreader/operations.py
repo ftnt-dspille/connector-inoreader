@@ -29,6 +29,13 @@ from .constants import (
 
 logger = get_logger(CONNECTOR_NAME)
 
+
+def _text(value):
+    """Config values as strings, whatever the platform stored them as."""
+    if value is None:
+        return ''
+    return value if isinstance(value, str) else str(value)
+
 # Persisting the refreshed token back onto the configuration is what keeps a
 # rotated refresh token (Inoreader may hand back a new one) and stops every
 # operation spending a request to re-mint an access token. The platform exports
@@ -68,17 +75,22 @@ class Inoreader(object):
         # info.json on the next version bump, and the config update then targets
         # a version that does not exist.
         self.connector_info = connector_info or {}
-        server_url = (config.get('server_url') or DEFAULT_SERVER_URL).strip().rstrip('/')
+        # Every config value is coerced through str() before it is touched.
+        # FortiSOAR stores a numeric-looking 'text' field as an int -- an Inoreader
+        # App ID is all digits -- and the connector then died on the appliance with
+        # "'int' object has no attribute 'strip'", which names nothing useful and
+        # cannot happen off-box where the values come from a JSON file as strings.
+        server_url = (_text(config.get('server_url')) or DEFAULT_SERVER_URL).strip().rstrip('/')
         if not server_url.startswith('http'):
             server_url = 'https://' + server_url
         self.server_url = server_url
         self.base_url = self.server_url + API_PATH
         self.verify_ssl = config.get('verify_ssl', True)
-        self.app_id = (config.get('app_id') or '').strip()
-        self.app_key = (config.get('app_key') or '').strip()
-        self.client_id = (config.get('client_id') or '').strip()
-        self.client_secret = config.get('client_secret') or ''
-        self.refresh_token = config.get('refresh_token') or ''
+        self.app_id = _text(config.get('app_id')).strip()
+        self.app_key = _text(config.get('app_key')).strip()
+        self.client_id = _text(config.get('client_id')).strip()
+        self.client_secret = _text(config.get('client_secret'))
+        self.refresh_token = _text(config.get('refresh_token'))
 
     # ---------------------------------------------------------------- auth --
 

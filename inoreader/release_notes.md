@@ -1,3 +1,10 @@
+### 1.0.4
+
+Fixes a crash on the appliance: FortiSOAR stores a digits-only text field as an
+integer, and an Inoreader App ID is all digits, so the health check failed with
+"'int' object has no attribute 'strip'". Every configuration value is now coerced
+to a string before use.
+
 ### 1.0.3
 
 Token maintenance now follows the platform convention used by Fortinet's own
