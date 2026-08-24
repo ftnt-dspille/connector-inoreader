@@ -6,7 +6,7 @@ Copyright end
 """
 
 CONNECTOR_NAME = 'inoreader'
-CONNECTOR_VERSION = '1.0.0'
+CONNECTOR_VERSION = '1.0.1'
 
 DEFAULT_SERVER_URL = 'https://www.inoreader.com'
 API_PATH = '/reader/api/0'

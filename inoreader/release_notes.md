@@ -1,3 +1,9 @@
+### 1.0.1
+
+Ships the connector icons (`images/small_icon.png`, `images/large_icon.png`) that
+`info.json` already referenced, so the tile renders in Content Hub instead of
+showing blank.
+
 ### 1.0.0
 
 Initial release.
