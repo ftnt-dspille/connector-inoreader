@@ -4,7 +4,7 @@
 
 [project]
 name = "connector-inoreader"
-version = "1.0.1"
+version = "1.0.2"
 description = "FortiSOAR Inoreader connector -- read RSS/Atom feeds, folders, and article streams over the Inoreader Reader API."
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -16,6 +16,12 @@ dev = ["pytest>=7", "ruff>=0.6"]
 testpaths = ["tests"]
 # Put the repo root on sys.path so `from inoreader import operations` resolves.
 pythonpath = ["."]
+# Live tests hit the real Inoreader API and spend a DAILY request quota, so they
+# are opt-in: `pytest -m live`. The default run stays offline and free.
+addopts = "-m 'not live'"
+markers = [
+    "live: exercises the real Inoreader API; needs .env.inoreader credentials",
+]
 
 [tool.ruff]
 line-length = 110

@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+
+# Real credentials. Only the .example template is tracked -- and it needs the
+# explicit un-ignore, because a global gitignore excluding `.env.*` would
+# otherwise keep the template out of the repo for everyone who clones it.
+.env.inoreader
+.env
+!.env.inoreader.example

@@ -166,6 +166,12 @@ class Inoreader(object):
             raise ConnectorError(ERROR_MESSAGES['ssl_error'])
         except requests.exceptions.Timeout:
             raise ConnectorError(ERROR_MESSAGES['time_out'])
+        except ConnectorError:
+            # _headers() raises this when the token refresh fails, and its message
+            # already names the real cause (invalid client credentials, a revoked
+            # refresh token). Re-wrapping it as 'Request to Inoreader failed' buries
+            # the one sentence the operator needs. Found by tools/live_check.py.
+            raise
         except Exception as err:
             raise ConnectorError('Request to Inoreader failed: {}'.format(err))
 

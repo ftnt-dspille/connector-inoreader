@@ -19,6 +19,8 @@ inoreader/            # the FortiSOAR connector package (FSR loads inoreader.con
   images/             # 150x150 and 500x500 tiles
   requirements.txt
 tests/                # off-box suite; FSR platform modules stubbed in conftest.py
+  test_live_inoreader.py  # opt-in: real API, `pytest -m live`
+tools/                # oauth_bootstrap.py, live_check.py, make_icon.py
 .github/workflows/    # ruff + info.json validation + pytest 3.10-3.13; tag -> .tgz release
 ```
 
@@ -125,9 +127,36 @@ Inoreader itself the de-duplication ledger.
 
 ```
 pip install -e '.[dev]'
-pytest -q          # 26 tests
+pytest -q          # 27 offline tests; live tests are deselected
 ruff check . && ruff format --check .
 ```
+
+## Validating against the real API
+
+The offline suite proves the wire shape the connector produces. It says nothing
+about whether Inoreader answers that shape. To settle that:
+
+```
+cp .env.inoreader.example .env.inoreader   # gitignored; fill in App ID / App Key
+python tools/oauth_bootstrap.py            # prints the URL to approve
+python tools/oauth_bootstrap.py <code>     # exchanges it, writes the refresh token
+python tools/live_check.py                 # 4 requests, reports what it found
+pytest -m live -v                          # the same ground, as assertions
+```
+
+`live_check.py` reports on the things faked tests cannot reach: that the refresh
+token exchanges, that AppId/AppKey and a bearer token are accepted together, that
+the account's **feed titles** are what a downstream mapping expects, and what the
+rate-limit headers actually say your quota is. Add `--write` to prove the write
+scope (it stars and immediately un-stars one article, leaving the account as it
+was found), or `--json` for CI.
+
+**Mind the quota.** Inoreader's limit is a DAILY per-zone budget (100/zone on
+Pro), so both the script and the live suite are written to be frugal: 4 Zone 1
+requests each, with responses fetched once in session-scoped fixtures and shared
+across assertions. New live assertions should route through those fixtures rather
+than making their own calls. `pytest` excludes the live tests by default
+(`-m "not live"`), so CI stays offline, free, and green without credentials.
 
 The FortiSOAR `connectors.*` packages are stubbed in `tests/conftest.py` and every
 HTTP call is faked, so the suite runs off-appliance and asserts on the wire shape

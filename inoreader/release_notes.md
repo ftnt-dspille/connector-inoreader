@@ -1,3 +1,13 @@
+### 1.0.2
+
+A failed OAuth token refresh no longer has its message replaced by the generic
+"Request to Inoreader failed". The token endpoint's own explanation (invalid
+client credentials, revoked refresh token) now reaches the operator.
+
+Adds `tools/oauth_bootstrap.py` (mint a refresh token), `tools/live_check.py`
+(validate against the real API on a 4-request budget), and an opt-in live test
+suite (`pytest -m live`).
+
 ### 1.0.1
 
 Ships the connector icons (`images/small_icon.png`, `images/large_icon.png`) that

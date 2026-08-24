@@ -135,6 +135,30 @@ def test_401_triggers_exactly_one_retry(monkeypatch, recorder):
     assert len(rec.calls) == 2
 
 
+def test_token_refresh_failure_is_not_rewrapped(monkeypatch, recorder):
+    """The token endpoint's own message must survive to the operator.
+
+    The refresh happens inside make_request's try block, so a generic
+    `except Exception` there turned "The client credentials are invalid" into
+    "Request to Inoreader failed", which names nothing.
+    """
+    recorder(FakeResponse(payload={"userId": "1"}))
+    monkeypatch.setattr(
+        ops.requests,
+        "post",
+        lambda url, data=None, **kw: FakeResponse(status_code=400, text='{"error":"invalid_client"}'),
+    )
+    config = _config()
+    config["access_token_expiry"] = 0
+
+    with pytest.raises(ConnectorError) as excinfo:
+        ops.get_user_info(config, {})
+
+    assert "Token refresh failed" in str(excinfo.value)
+    assert "invalid_client" in str(excinfo.value)
+    assert "Request to Inoreader failed" not in str(excinfo.value)
+
+
 def test_missing_oauth_config_is_a_clear_error(monkeypatch):
     config = _config()
     config.pop("access_token")
