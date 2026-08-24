@@ -8,11 +8,17 @@ no amount of faking can settle: that AppId/AppKey and a bearer token are accepte
 together, that `output=json` is honoured, that the normalized article fields the
 UC-12 parse step reads are really populated.
 
-QUOTA. Inoreader's limit is a DAILY per-zone quota (100/zone on Pro). The whole
-module spends **4 Zone 1 requests**: the API responses are fetched once in
-session-scoped fixtures and shared by every assertion. Add a test that calls the
-API directly and you have added to a daily budget, so route new assertions
-through the existing fixtures wherever they fit.
+QUOTA. Inoreader's limit is a DAILY per-zone quota -- and it is small (100/zone on
+a Pro account; read yours off the headers, they vary). So this module normally
+spends **nothing**: it replays the responses `tools/live_check.py` captured into
+.cache/live/. Eight runs of a four-call suite would otherwise be a third of a
+day's reads spent on assertions that would have passed against the same payload.
+
+    python tools/live_check.py          # captures (4 requests)
+    pytest -m live                      # replays (0 requests)
+    INOREADER_LIVE_REFRESH=1 pytest -m live   # re-fetches (4 requests)
+
+Add an assertion, not a call: route new checks through the existing fixtures.
 
 Excluded from the default run (pyproject sets `-m "not live"`), so CI stays green
 and offline without credentials.
@@ -25,6 +31,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
+import cache as cache_helper  # noqa: E402
 import env as env_helper  # noqa: E402
 
 from inoreader import operations as ops  # noqa: E402
@@ -51,24 +58,40 @@ def stream():
     return env_helper.stream_id(_VALUES)
 
 
+def _cached_or_fetch(name, fetch):
+    """Replay a captured response; only touch the API when asked to, or when nothing was captured."""
+    if not cache_helper.refresh_requested():
+        cached = cache_helper.load(name)
+        if cached is not None:
+            return cached
+        if _MISSING:
+            pytest.skip(f"no cached '{name}' and no credentials -- run tools/live_check.py first")
+    payload = fetch()
+    cache_helper.save(name, payload)
+    return payload
+
+
 @pytest.fixture(scope="session")
 def user_info(config):
-    return ops.get_user_info(config, {})
+    return _cached_or_fetch("user_info", lambda: ops.get_user_info(config, {}))
 
 
 @pytest.fixture(scope="session")
 def subscriptions(config):
-    return ops.get_subscriptions(config, {})
+    return _cached_or_fetch("subscriptions", lambda: ops.get_subscriptions(config, {}))
 
 
 @pytest.fixture(scope="session")
 def tags(config):
-    return ops.get_tags(config, {"include_counts": True})
+    return _cached_or_fetch("tags", lambda: ops.get_tags(config, {"include_counts": True}))
 
 
 @pytest.fixture(scope="session")
 def articles(config, stream):
-    return ops.fetch_articles(config, {"stream_id": stream, "max_records": 5, "unread_only": False})
+    return _cached_or_fetch(
+        "articles",
+        lambda: ops.fetch_articles(config, {"stream_id": stream, "max_records": 5, "unread_only": False}),
+    )
 
 
 # ------------------------------------------------------------------- auth ----
@@ -77,9 +100,11 @@ def articles(config, stream):
 @requires_credentials
 def test_refresh_token_exchanges_for_a_working_access_token(user_info, config):
     # Nothing seeds an access token, so a successful call means the refresh-token
-    # exchange ran and the minted token was accepted.
+    # exchange ran and the minted token was accepted. Meaningless against a
+    # replayed payload, so skip unless this run actually hit the API.
     assert user_info.get("userId")
-    assert config.get("access_token")
+    if not config.get("access_token"):
+        pytest.skip("replayed from cache; re-run with INOREADER_LIVE_REFRESH=1 to prove the exchange")
 
 
 @requires_credentials
@@ -90,9 +115,12 @@ def test_app_credentials_and_bearer_token_are_accepted_together(user_info):
 
 
 @requires_credentials
+@pytest.mark.skipif(
+    not cache_helper.refresh_requested(),
+    reason="costs a request; run with INOREADER_LIVE_REFRESH=1",
+)
 def test_health_check_passes(config):
-    # Uses the same session-scoped token; costs nothing extra beyond the call the
-    # health check itself makes.
+    # The one test that cannot be replayed -- the health check IS a live call.
     assert ops._check_health(config) is True
 
 

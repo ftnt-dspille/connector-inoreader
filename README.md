@@ -151,12 +151,30 @@ rate-limit headers actually say your quota is. Add `--write` to prove the write
 scope (it stars and immediately un-stars one article, leaving the account as it
 was found), or `--json` for CI.
 
-**Mind the quota.** Inoreader's limit is a DAILY per-zone budget (100/zone on
-Pro), so both the script and the live suite are written to be frugal: 4 Zone 1
-requests each, with responses fetched once in session-scoped fixtures and shared
-across assertions. New live assertions should route through those fixtures rather
-than making their own calls. `pytest` excludes the live tests by default
-(`-m "not live"`), so CI stays offline, free, and green without credentials.
+### Mind the quota
+
+Inoreader's limit is a **daily** per-zone budget, and it is small -- 100 requests
+per zone on a Pro account (read yours off the headers; they vary by plan). Every
+piece of this tooling is built around that:
+
+| Command | Cost |
+|---|---|
+| `python tools/live_check.py --quota` | **1** request -- how much is left today |
+| `python tools/live_check.py` | **4** Zone 1 requests, and it caches what it fetched |
+| `pytest -m live` | **0** -- replays the cache |
+| `INOREADER_LIVE_REFRESH=1 pytest -m live` | 4, deliberately |
+| `python tools/live_check.py --write` | + 2 Zone 2 (a separate budget from reads) |
+| `pytest -q` (default) | 0 -- live tests are deselected |
+
+Two guards beyond that: `live_check.py` reads the quota off the very first
+response and **stops before the remaining three checks** if fewer than 15 Zone 1
+requests are left, and the connector logs the rate-limit headers on every single
+response, so a FortiSOAR run leaves a trail of what it spent.
+
+Budget for a demo day on a 100/day account: a scheduled ingestion at 30 minutes
+is 48, one playbook run is 1, a health check is 1. Leave ingestion off while
+iterating, and prefer `--quota` over a full check when you just want to know
+where you stand.
 
 The FortiSOAR `connectors.*` packages are stubbed in `tests/conftest.py` and every
 HTTP call is faked, so the suite runs off-appliance and asserts on the wire shape

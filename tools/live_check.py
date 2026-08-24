@@ -51,6 +51,7 @@ def _install_fsr_stubs() -> None:
 
 _install_fsr_stubs()
 
+import cache as cache_helper  # noqa: E402
 import env as env_helper  # noqa: E402
 from connectors.core.connector import ConnectorError  # noqa: E402
 from inoreader import operations as ops  # noqa: E402
@@ -103,10 +104,17 @@ class Report:
         return [c for c in self.checks if not c["ok"]]
 
 
-def _run(report: Report, name: str, fn):
-    """Run one check; a ConnectorError is a FAIL, not a crash."""
+def _run(report: Report, name: str, fn, cache_as: str | None = None):
+    """Run one check; a ConnectorError is a FAIL, not a crash.
+
+    A successful response is cached under `cache_as` so `pytest -m live` can
+    assert against it without spending the quota a second time.
+    """
     try:
-        return fn()
+        result = fn()
+        if cache_as and result is not None:
+            cache_helper.save(cache_as, result)
+        return result
     except ConnectorError as err:
         report.record(name, False, str(err))
     except Exception as err:  # noqa: BLE001 - a live check should report, not traceback
@@ -114,9 +122,25 @@ def _run(report: Report, name: str, fn):
     return None
 
 
+# Refuse to spend the day's remaining reads on assertions. 15 leaves room for a
+# demo run (1 request) and a few health checks even on a 100/day account.
+MIN_ZONE1_REMAINING = 15
+
+
+def _remaining(meter: "Meter") -> int | None:
+    """Zone 1 requests left today, or None if the headers said nothing."""
+    try:
+        limit = int(meter.limits["X-Reader-Zone1-Limit"])
+        usage = int(meter.limits["X-Reader-Zone1-Usage"])
+    except (KeyError, ValueError):
+        return None
+    return limit - usage
+
+
 def main() -> int:
     write_mode = "--write" in sys.argv
     as_json = "--json" in sys.argv
+    quota_only = "--quota" in sys.argv
 
     values = env_helper.load()
     gaps = env_helper.missing(values)
@@ -137,7 +161,7 @@ def main() -> int:
     # 1. Auth. Proves three things at once: the refresh-token exchange works, the
     #    AppId/AppKey headers are accepted alongside the bearer token, and the
     #    account is the one you think it is.
-    user = _run(report, "auth + /user-info", lambda: ops.get_user_info(config, {}))
+    user = _run(report, "auth + /user-info", lambda: ops.get_user_info(config, {}), cache_as="user_info")
     if user:
         report.record(
             "auth + /user-info",
@@ -150,9 +174,24 @@ def main() -> int:
             "the connector minted and cached a token, so later calls do not re-mint",
         )
 
+    left = _remaining(meter)
+    if left is not None and not as_json:
+        limit = meter.limits.get("X-Reader-Zone1-Limit")
+        print(f"\n  quota: {left} of {limit} Zone 1 requests left today\n")
+    if quota_only:
+        print(f"  {_quota_summary(meter)}\n  spent 1 request")
+        return 0
+    if left is not None and left < MIN_ZONE1_REMAINING:
+        # Stopping here is the point: an exhausted quota during a demo looks
+        # exactly like a broken integration, and these checks are not urgent.
+        print(f"  STOPPING: only {left} Zone 1 requests left today (floor is {MIN_ZONE1_REMAINING}).")
+        print("  The remaining checks would spend 3 more. Re-run after the quota resets;")
+        print(f"  {_quota_summary(meter)}")
+        return 3
+
     # 2. Subscriptions. The highest-risk item for UC-12: the playbook routes on FEED
     #    TITLE, so the titles Inoreader assigns have to match its product_map.
-    subs = _run(report, "/subscription/list", lambda: ops.get_subscriptions(config, {}))
+    subs = _run(report, "/subscription/list", lambda: ops.get_subscriptions(config, {}), cache_as="subscriptions")
     if subs is not None:
         titles = [s.get("title") for s in (subs.get("subscriptions") or [])]
         report.record(
@@ -164,7 +203,7 @@ def main() -> int:
 
     # 3. Folders/tags. Confirms the demo folder exists and is spelled as the
     #    playbook's stream_id expects.
-    tags = _run(report, "/tag/list", lambda: ops.get_tags(config, {"include_counts": True}))
+    tags = _run(report, "/tag/list", lambda: ops.get_tags(config, {"include_counts": True}), cache_as="tags")
     if tags is not None:
         folders = [t.get("id") for t in (tags.get("tags") or []) if t.get("type") in ("folder", "tag")]
         report.record(
@@ -185,6 +224,7 @@ def main() -> int:
         report,
         "fetch_articles",
         lambda: ops.fetch_articles(config, {"stream_id": stream, "max_records": 5, "unread_only": False}),
+        cache_as="articles",
     )
     first = None
     if articles is not None:
@@ -229,6 +269,7 @@ def main() -> int:
         print(json.dumps({"checks": report.checks, "requests": meter.count, "limits": meter.limits}, indent=2))
     else:
         print(f"\n  spent {meter.count} request(s): {', '.join(path for _, path in meter.calls)}")
+        print(f"  responses cached for `pytest -m live` -- {cache_helper.summary()}")
         print(f"  {quota}\n")
         print("  " + ("all checks passed" if not report.failed else f"{len(report.failed)} check(s) FAILED"))
 

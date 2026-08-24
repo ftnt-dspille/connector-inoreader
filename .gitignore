@@ -10,3 +10,7 @@ __pycache__/
 .env.inoreader
 .env
 !.env.inoreader.example
+
+# Captured live API responses: somebody's real feed contents, and a snapshot
+# rather than a reviewable fixture.
+.cache/
