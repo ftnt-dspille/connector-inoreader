@@ -264,6 +264,13 @@ def main() -> int:
     elif write_mode:
         report.record("edit-tag (write scope)", False, "skipped: no article to tag")
 
+    if env_helper.persist_refresh_token(config):
+        report.record(
+            "rotated refresh token persisted",
+            True,
+            "Inoreader issued a new refresh token; .env.inoreader has been updated",
+        )
+
     quota = _quota_summary(meter)
     if as_json:
         print(json.dumps({"checks": report.checks, "requests": meter.count, "limits": meter.limits}, indent=2))

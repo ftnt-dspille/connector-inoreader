@@ -61,3 +61,29 @@ def to_config(values: dict[str, str]) -> dict[str, object]:
 
 def stream_id(values: dict[str, str]) -> str:
     return values.get("INOREADER_STREAM_ID") or "user/-/state/com.google/reading-list"
+
+
+def persist_refresh_token(config: dict, path: Path | None = None) -> bool:
+    """Write a rotated refresh token back into `.env.inoreader`.
+
+    Inoreader may return a NEW refresh token on refresh. On the appliance the
+    connector persists that onto the connector configuration; off-box there is no
+    configuration to write to, so without this the env file keeps the superseded
+    token and stops working at some unpredictable later date -- the failure mode
+    the connector goes out of its way to avoid on the appliance.
+
+    Returns True if the file was updated.
+    """
+    current = str(config.get("refresh_token") or "")
+    env_path = path or ENV_PATH
+    if not current or not env_path.exists():
+        return False
+    lines = env_path.read_text().splitlines()
+    for i, line in enumerate(lines):
+        if line.strip().startswith("INOREADER_REFRESH_TOKEN="):
+            if line.split("=", 1)[1].strip() == current:
+                return False
+            lines[i] = f"INOREADER_REFRESH_TOKEN={current}"
+            env_path.write_text("\n".join(lines) + "\n")
+            return True
+    return False
