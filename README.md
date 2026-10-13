@@ -15,7 +15,7 @@ inoreader/            # the FortiSOAR connector package (FSR loads inoreader.con
   info.json           # manifest: configuration, operations, ingestion schema
   connector.py        # Connector subclass: execute() + check_health()
   constants.py        # endpoints, stream IDs, rate-limit headers, error strings
-  operations.py       # REST client + the 11 operation handlers
+  operations.py       # REST client + the 12 operation handlers
   images/             # 150x150 and 500x500 tiles
   requirements.txt
 tests/                # off-box suite; FSR platform modules stubbed in conftest.py
@@ -46,6 +46,8 @@ tar --exclude='__pycache__' -czf inoreader.tgz inoreader
 | Scopes | `read`, or `read write` for any tagging/subscribing action |
 | Pagination | `n` (page size) + `c` (continuation cursor); absent `continuation` = end of stream |
 | Rate limits | **Per day**, per zone. 100/zone on Pro. Headers: `X-Reader-Zone{1,2}-{Limit,Usage}`, `X-Reader-Limits-Reset-After` |
+
+**Execute API Request** calls any endpoint of the Inoreader HTTP API (for example `/reader/api/0/user-info`) with the configured OAuth token and app credentials; a full URL, a `//host` start, a `..` segment or a backslash is refused so the token only goes to the configured server.
 
 Endpoints used:
 

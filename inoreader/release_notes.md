@@ -1,3 +1,10 @@
+### 1.1.0
+
+New operation **Execute API Request**: call any Inoreader HTTP API endpoint with the
+configured OAuth token (form-encoded bodies for POST, PUT and PATCH). A full URL,
+a `//host` start, a `..` segment or a backslash is refused, so the token only goes
+to the configured server.
+
 ### 1.0.4
 
 Fixes a crash on the appliance: FortiSOAR stores a digits-only text field as an

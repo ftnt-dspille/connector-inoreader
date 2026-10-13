@@ -5,8 +5,11 @@ Copyright (c) 2026 Fortinet Inc
 Copyright end
 """
 
+import json
 import time
 from datetime import datetime, timezone
+
+from urllib.parse import unquote, urlparse
 
 import requests
 from connectors.core.connector import get_logger, ConnectorError
@@ -517,6 +520,57 @@ def _epoch_to_iso(value):
         return None
 
 
+def _safe_endpoint(endpoint):
+    """A path on the configured server, or an error.
+
+    A full URL, a `//host` start, a `..` segment (also percent-encoded, up to
+    three layers) or a backslash is refused, so the OAuth token and the app
+    credentials can never be sent to another host.
+    """
+    endpoint = _text(endpoint).strip()
+    if not endpoint:
+        raise ConnectorError('Endpoint is required')
+    path = endpoint.split('?')[0]
+    for _ in range(3):
+        path = unquote(path)
+    parsed = urlparse(endpoint)
+    if (parsed.scheme or parsed.netloc or endpoint.startswith('//') or path.startswith('//')
+            or '..' in path.split('/') or '\\' in path):
+        raise ConnectorError('Endpoint must be a path on the configured server, '
+                             'for example /reader/api/0/user-info - not a full URL')
+    return endpoint if endpoint.startswith('/') else '/' + endpoint
+
+
+def _json_object(value, name):
+    """A JSON object from a dict or a JSON string; blank means none."""
+    if value is None or value == '' or value == {}:
+        return None
+    if isinstance(value, str):
+        if not value.strip():
+            return None
+        try:
+            value = json.loads(value)
+        except ValueError:
+            raise ConnectorError('{} must be valid JSON'.format(name))
+    if not isinstance(value, dict):
+        raise ConnectorError('{} must be a JSON object'.format(name))
+    return value or None
+
+
+def execute_api_request(config, params, **kwargs):
+    """Call any Inoreader HTTP API endpoint with the connector's own auth."""
+    method = _text(params.get('method') or 'GET').strip().upper()
+    if method not in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE'):
+        raise ConnectorError('Method must be GET, POST, PUT, PATCH or DELETE')
+    path = _safe_endpoint(params.get('endpoint'))
+    query = _json_object(params.get('query_params'), 'Query Parameters')
+    body = _json_object(params.get('request_body'), 'Request Body')
+    client = _client(config, kwargs)
+    # Inoreader's write endpoints take form-encoded bodies, as edit_tag does.
+    data = body if body and method in ('POST', 'PUT', 'PATCH') else None
+    return client.make_request(client.server_url + path, method=method, params=query, data=data)
+
+
 def _check_health(config, **kwargs):
     client = _client(config, kwargs)
     try:
@@ -543,4 +597,5 @@ operations = {
     'edit_tag': edit_tag,
     'mark_all_as_read': mark_all_as_read,
     'fetch_articles': fetch_articles,
+    'execute_api_request': execute_api_request,
 }

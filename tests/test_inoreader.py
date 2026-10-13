@@ -504,3 +504,63 @@ def test_numeric_app_id_from_the_appliance_does_not_crash(recorder):
     ops.get_user_info(config, {})
 
     assert rec.calls[0]["headers"]["AppId"] == "999984443"
+
+
+# ------------------------------------------------- execute_api_request ----
+
+
+def test_execute_api_request_get_sends_the_token_to_the_configured_server(recorder):
+    rec = recorder(FakeResponse(payload={"userId": "1"}))
+    out = ops.execute_api_request(_config(), {"endpoint": "/reader/api/0/user-info",
+                                              "query_params": '{"x": "1"}'})
+    assert out == {"userId": "1"}
+    call = rec.calls[0]
+    assert call["method"] == "GET"
+    assert call["url"] == "https://www.inoreader.com/reader/api/0/user-info"
+    assert call["headers"]["Authorization"] == "Bearer cached-token"
+    assert call["headers"]["AppId"] == "app-id"
+    assert call["params"]["x"] == "1"
+
+
+def test_execute_api_request_post_sends_a_form_encoded_body(recorder):
+    rec = recorder(FakeResponse(text="OK"))
+    out = ops.execute_api_request(_config(), {"endpoint": "reader/api/0/edit-tag", "method": "post",
+                                              "request_body": {"i": "tag:1", "a": "user/-/state/com.google/starred"}})
+    assert out == {"status": "OK"}
+    call = rec.calls[0]
+    assert call["method"] == "POST"
+    assert call["url"] == "https://www.inoreader.com/reader/api/0/edit-tag"
+    assert call["data"] == {"i": "tag:1", "a": "user/-/state/com.google/starred"}
+    assert call["headers"]["Authorization"] == "Bearer cached-token"
+
+
+def test_execute_api_request_surfaces_an_auth_failure(recorder):
+    recorder(FakeResponse(status_code=403, payload={"error": "nope"}))
+    with pytest.raises(ConnectorError, match="403"):
+        ops.execute_api_request(_config(), {"endpoint": "/reader/api/0/user-info"})
+
+
+@pytest.mark.parametrize("endpoint", [
+    "https://evil.example.com/x", "//evil.example.com/x", "ftp://x/y", "/reader/../etc",
+    "/reader/%2e%2e/etc", "/reader/%252e%252e/etc", "/reader/..%5cetc", "/reader\\x"])
+def test_execute_api_request_refuses_anything_that_could_send_the_token_elsewhere(recorder, endpoint):
+    rec = recorder()
+    with pytest.raises(ConnectorError, match="path on the configured server"):
+        ops.execute_api_request(_config(), {"endpoint": endpoint})
+    assert rec.calls == []
+
+
+def test_execute_api_request_validates_input(recorder):
+    recorder()
+    with pytest.raises(ConnectorError, match="Endpoint is required"):
+        ops.execute_api_request(_config(), {})
+    with pytest.raises(ConnectorError, match="Method must be"):
+        ops.execute_api_request(_config(), {"endpoint": "/a", "method": "TRACE"})
+    with pytest.raises(ConnectorError, match="valid JSON"):
+        ops.execute_api_request(_config(), {"endpoint": "/a", "request_body": "{nope"})
+    with pytest.raises(ConnectorError, match="JSON object"):
+        ops.execute_api_request(_config(), {"endpoint": "/a", "query_params": "[1]"})
+
+
+def test_execute_api_request_is_dispatched():
+    assert ops.operations["execute_api_request"] is ops.execute_api_request

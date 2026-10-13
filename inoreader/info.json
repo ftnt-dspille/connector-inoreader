@@ -5,7 +5,7 @@
   "publisher": "Community",
   "cs_approved": false,
   "cs_compatible": true,
-  "version": "1.0.4",
+  "version": "1.1.0",
   "category": "Threat Intelligence",
   "icon_small_name": "small_icon.png",
   "icon_large_name": "large_icon.png",
@@ -800,6 +800,63 @@
           "visible": true,
           "tooltip": "Articles published after this datetime stay unread.",
           "description": "Only mark articles published before this datetime. Anything newer stays unread."
+        }
+      ]
+    },
+    {
+      "operation": "execute_api_request",
+      "title": "Execute API Request",
+      "description": "Calls any Inoreader HTTP API endpoint with the configured OAuth token and application credentials. A full URL is refused so the token only ever goes to the configured server.",
+      "category": "miscellaneous",
+      "annotation": "execute_api_request",
+      "enabled": true,
+      "output_schema": {},
+      "parameters": [
+        {
+          "title": "Endpoint",
+          "name": "endpoint",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Path on the configured server.",
+          "description": "Path on the configured Inoreader server, for example /reader/api/0/user-info.",
+          "placeholder": "e.g. /reader/api/0/user-info"
+        },
+        {
+          "title": "Method",
+          "name": "method",
+          "type": "select",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "description": "HTTP method. Defaults to GET.",
+          "options": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "value": "GET"
+        },
+        {
+          "title": "Query Parameters",
+          "name": "query_params",
+          "type": "json",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "description": "(Optional) JSON object of query string parameters."
+        },
+        {
+          "title": "Request Body",
+          "name": "request_body",
+          "type": "json",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "description": "(Optional) JSON object sent form-encoded with POST, PUT and PATCH."
         }
       ]
     }
