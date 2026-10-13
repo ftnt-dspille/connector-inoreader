@@ -195,7 +195,8 @@ class Inoreader(object):
 
     # ------------------------------------------------------------- request --
 
-    def make_request(self, endpoint, method='GET', params=None, data=None, headers=None, retry_auth=True):
+    def make_request(self, endpoint, method='GET', params=None, data=None, headers=None, retry_auth=True,
+                     follow_redirects=True):
         url = endpoint if endpoint.startswith('http') else self.base_url + endpoint
         request_params = dict(params or {})
         # `output=json` is not the default on several of these endpoints; without
@@ -205,7 +206,7 @@ class Inoreader(object):
         try:
             response = requests.request(method, url, params=request_params, data=data,
                                         headers=self._headers(headers), verify=self.verify_ssl,
-                                        timeout=120)
+                                        timeout=120, allow_redirects=follow_redirects)
         except requests.exceptions.SSLError:
             raise ConnectorError(ERROR_MESSAGES['ssl_error'])
         except requests.exceptions.Timeout:
@@ -228,7 +229,12 @@ class Inoreader(object):
             self.config.pop('access_token_expiry', None)
             self._refresh_access_token()
             return self.make_request(endpoint, method=method, params=params, data=data,
-                                     headers=headers, retry_auth=False)
+                                     headers=headers, retry_auth=False, follow_redirects=follow_redirects)
+
+        if not follow_redirects and 300 <= response.status_code < 400:
+            # The app id, app key and token must not follow a redirect to another host.
+            raise ConnectorError('Inoreader answered with a redirect (HTTP {}); not following it '
+                                 'so the credentials stay on the configured server'.format(response.status_code))
 
         if response.ok:
             if not response.content:
@@ -568,7 +574,8 @@ def execute_api_request(config, params, **kwargs):
     client = _client(config, kwargs)
     # Inoreader's write endpoints take form-encoded bodies, as edit_tag does.
     data = body if body and method in ('POST', 'PUT', 'PATCH') else None
-    return client.make_request(client.server_url + path, method=method, params=query, data=data)
+    return client.make_request(client.server_url + path, method=method, params=query, data=data,
+                               follow_redirects=False)
 
 
 def _check_health(config, **kwargs):

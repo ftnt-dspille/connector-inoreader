@@ -564,3 +564,10 @@ def test_execute_api_request_validates_input(recorder):
 
 def test_execute_api_request_is_dispatched():
     assert ops.operations["execute_api_request"] is ops.execute_api_request
+
+
+def test_execute_api_request_does_not_follow_redirects(recorder):
+    rec = recorder(FakeResponse(status_code=302, payload={}))
+    with pytest.raises(ConnectorError, match="redirect"):
+        ops.execute_api_request(_config(), {"endpoint": "/reader/api/0/user-info"})
+    assert rec.calls[0]["allow_redirects"] is False
